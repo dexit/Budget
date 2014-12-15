@@ -1,4 +1,8 @@
 db_config.php
 budget.ico
 budget.csv
+<<<<<<< HEAD
 .htaccess
+=======
+error_log
+>>>>>>> 99916424f50bd8847efdbc507dc45164c7782dd5
