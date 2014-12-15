@@ -1,6 +1,6 @@
 <?php
 //Force HTTPS
-if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
+/*if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
 	if(!headers_sent()) {
 		header("Status: 301 Moved Permanently");
 		header(sprintf(
@@ -10,7 +10,7 @@ if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
 		));
 		exit();
 	}
-}
+}*/
 
 /*********************/
 /*** The Functions ***/

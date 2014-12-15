@@ -4,7 +4,7 @@ require_once('functions.php');
 if($_POST['action'] == "switchmonth") {
 	if(!$camefrom = $_POST['camefrom'])
 		if(!$camefrom = $_SERVER['HTTP_REFERER'])
-			$camefrom = 'https://s.stevish.com/budget/';
+			$camefrom = 'http://s.stevish.com/budget/';
 	$month = get_month_no(mktime(0, 0, 0, intval($_POST['sm_month']), 1, intval($_POST['sm_year'])));
 	if(strpos($camefrom, '?'))
 		$camefrom = strstr($camefrom, '?', 1);
@@ -76,12 +76,13 @@ if($_COOKIE['budget']) {
 </head><body><?php
 
 $accounts = array(
-	1 => 'Mastercard',
+	3 => 'Rachel\'s Visa',
 	4 => 'Ally',
+	1 => 'Mastercard',
 	5 => 'Notes/Extra',
 	6 => 'Cash',
+	8 => 'NTM Account',
 	7 => 'Paypal Account',
-	3 => 'Rachel\'s Visa',
 	2 => 'Air Academy',
 );
 
@@ -316,14 +317,16 @@ function add_transaction($dupecheck = true) {
 				break;
 			}
 		}
-		if(!$isgoodcat)
+		if(!$isgoodcat) {
 			return "Error: 4 (Stephen knows what this means)";
-		if(!$_POST['amount'])
-			return "Please enter an amount that is not zero";
-		elseif(is_numeric(preg_replace("/[^0-9\.]/", '', $_POST['amount'])))
-			$amount = preg_replace("/[^0-9\.]/", '', $_POST['amount']);
-		else
+		}
+		if($_POST['amount'] == '') {
+			return "Please enter an amount";
+		} elseif(is_numeric(preg_replace("/[^0-9\.\-]/", '', $_POST['amount']))) {
+			$amount = preg_replace("/[^0-9\.\-]/", '', $_POST['amount']);
+		} else {
 			return 'The amount given was not a number. Maybe you tried to use a dollar sign?';
+		}
 		$payee = mysql_real_escape_string($_POST['payee']);
 		if(!$payee)
 			return "ERROR: Please set a payee";
@@ -336,10 +339,11 @@ function add_transaction($dupecheck = true) {
 		for($i = 1; $i < 5; $i++) {
 			if($_POST['amount' . $i]) {
 				$multi = true;
-				if(is_numeric($_POST['amount' . $i]))
-					$splitamount[$i] = $_POST['amount' . $i];
-				else
+				if(is_numeric(preg_replace("/[^0-9\.\-]/", '', $_POST['amount' . $i]))) {
+					$splitamount[$i] = preg_replace("/[^0-9\.\-]/", '', $_POST['amount' . $i]);
+				} else {
 					return 'An amount given was not a number. Maybe you tried to use a dollar sign?';
+				}
 				$splitnotes[$i] = mysql_real_escape_string($_POST['notes' . $i]);
 				
 				$result = mysql_query("SELECT `id` FROM `categories`");
