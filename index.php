@@ -53,7 +53,7 @@ if($_COOKIE['budget']) {
 		text-decoration: underline;
 		cursor: pointer;
 	}
-	#message {
+	#message, .message {
 		line-height: 60px;
 		padding: 10px 20px;
 		background-color: #ff0;
@@ -69,6 +69,10 @@ if($_COOKIE['budget']) {
 		border: 1px solid #333;
 		box-shadow: 1px 1px 3px #555;
 	}
+	form#transaction_filter {
+		border: 2px solid #222;
+		padding: 5px;
+	}
 	
 </style>
 <link rel="shortcut icon" href="budget.ico" type="image/x-icon">
@@ -76,14 +80,15 @@ if($_COOKIE['budget']) {
 </head><body><?php
 
 $accounts = array(
+	2 => 'Chase CC',
+	9 => 'Amex CC',
 	3 => 'Rachel\'s Visa',
 	4 => 'Ally',
-	1 => 'Mastercard',
+	1 => 'SJ\'s Mastercard',
 	5 => 'Notes/Extra',
 	6 => 'Cash',
 	8 => 'NTM Account',
 	7 => 'Paypal Account',
-	2 => 'Air Academy',
 );
 
 if(!$_GET['viewmonth'])
@@ -141,22 +146,19 @@ if($_POST['action'] == 'add') {
 
 
 
-show_transaction_form($postarray);
-show_budget($viewmonth);
-show_transactions($viewmonth);
+show_transaction_form( $postarray, $viewmonth );
+show_budget( $viewmonth );
+show_transactions( $viewmonth, build_transaction_filter() );
 show_carryover_form();
 
 
 
 
-function show_transaction_form($postarray = false) {
+function show_transaction_form($postarray = false, $month) {
 	db_connect();
 	global $accounts, $catnames;
 	$catoptions = $catoptions1 = $catoptions2 = $catoptions3 = $catoptions4 = '';
-	if($_GET['viewmonth'])
-		$month = intval($_GET['viewmonth']);
-	else
-		$month = get_month_no();
+
 	list($date_from_month) = get_month_dates($month);
 	$month_field = date('m', $date_from_month);
 	$year_field = date('Y', $date_from_month);
@@ -195,7 +197,7 @@ function show_transaction_form($postarray = false) {
 	</form>
 <? }
 
-function show_transactions($month) {
+function show_transactions($month, $filter = false) {
 	if($GLOBALS['mobile'] && $_GET['showfull'] != "yes") {
 		echo "<a href='index.php?viewmonth=" . $_GET['viewmonth'] . "&showfull=yes'>Show Full Page</a>";
 		return false;
@@ -203,10 +205,42 @@ function show_transactions($month) {
 	
 	global $accounts, $catnames;
 	db_connect(0);
-	if(!$_POST['query'])
+	if(!$filter) {
 		$query = "SELECT * FROM `transactions` WHERE `month` = '$month' ORDER BY `date`, `group`";
-	else 
-		$query = stripslashes($_POST['query']);
+	} else { 
+		$query = "SELECT * FROM `transactions` WHERE `month` = '$month' AND " . $filter . " ORDER BY `date`, `group`";
+		echo "<div class='message'>This view is filtered! Only transactions that get through the indicated filter are being displayed.</div>";
+	} ?>
+	<form method="POST" id="transaction_filter">
+		<strong>Filter Transactions: &nbsp; </strong>
+		Account: <select name="tf_account">
+			<option value="">---</option>
+			<?php
+			foreach($accounts as $k => $v) {
+				if ( $_POST[ 'tf_account' ] == $k ) {
+					echo "        <option value='$k' selected='selected'>$v</option>\n";
+				} else {
+					echo "        <option value='$k'>$v</option>\n";
+				}
+			}
+			?>
+		</select>
+		Category: <select name="tf_cat">
+			<option value="">---</option>
+			<?php
+			foreach($catnames as $id => $name) {
+				if ( $_POST[ 'tf_cat' ] == $id ) {
+					echo '        <option value="' . $id . '" selected="selected">' . $name . "</option>\n";
+				} else { 
+					echo '        <option value="' . $id . '">' . $name . "</option>\n";
+				}
+			}
+			?>
+		</select>
+		Payee contains: <input type="text" name="tf_payee" value="<?php echo htmlspecialchars( $_POST[ 'tf_payee' ] ); ?>" />
+		<input type="submit" value="Filter" />
+	</form>
+	<?php
 	$result = mysql_query($query);
 	$transactions = array();
 	echo /*$GLOBALS['mobile'] ? '' : */'<table><tr><th>ID</th><th>Account</th><th>Date</th><th>Payee</th><th>Category</th><th>Amount</th><th>Notes</th></tr>';
@@ -560,6 +594,28 @@ function show_carryover_form() {
 		}
 		echo '<input type="hidden" name="action" value="carryover" /><input type="hidden" name="carryover_month" value="' . $viewmonth . '" /><input type="submit" value="Do Carryover" /></form>';
 	}
+}
+
+function build_transaction_filter() {
+	$and = '';
+	$where = '';
+	if ( $_POST[ 'tf_account' ] ) {
+		$account = intval( $_POST[ 'tf_account' ] );
+		$where .= $and . " `account` = '$account'";
+		$and = ' AND';
+	}
+	if ( $_POST[ 'tf_cat' ] ) {
+		$cat = mysql_real_escape_string( htmlspecialchars( $_POST[ 'tf_cat' ] ) );
+		$where .= $and . " `category` = '$cat'";
+		$and = ' AND';
+	}
+	if ( $_POST[ 'tf_payee' ] ) {
+		$payee = mysql_real_escape_string( htmlspecialchars( $_POST[ 'tf_payee' ] ) );
+		$where .= $and . " `payee` LIKE '%{$payee}%'";
+		$and = ' AND';
+	}
+	
+	return $where;
 }
 
 $ended = microtime(true);
