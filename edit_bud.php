@@ -9,23 +9,27 @@ if(sha1(md5(sdec($_COOKIE['budget']))) != "dd5642287c7a8b1bee2b23410a5c4fcce1c01
 	budget_return("Error: " . $_COOKIE['budget'] . " Invalid Password. Make sure you have a smiley face before you edit anything (to get a smily face, just put in the right password in the 'add transaction' section a few times)");
 		
 $catnames = array();
-$result = mysql_query("SELECT * FROM `categories`");
-while($row = mysql_fetch_array($result))
+$result = $GLOBALS['db']->query("SELECT * FROM `categories`");
+while( $row = $result->fetch_row() ) {
 	$catnames[$row[0]] = $row[1];
+}
 	
-if(!is_array($vs = varsec())) 
+if(!is_array($vs = varsec())) {
 	budget_return($vs);
+}
 
-if(mysql_numrows(mysql_query("SELECT * FROM `budget` WHERE `month` = '{$vs['month']}' AND `category` = '{$vs['category']}';")) > 0) {
-	if(mysql_query("UPDATE `budget` SET `total` = '{$vs['total']}' WHERE `month` = '{$vs['month']}' AND `category` = '{$vs['category']}' LIMIT 1;"))
+if ( $GLOBALS['db']->query("SELECT * FROM `budget` WHERE `month` = '{$vs['month']}' AND `category` = '{$vs['category']}';")->num_rows > 0) {
+	if($GLOBALS['db']->query("UPDATE `budget` SET `total` = '{$vs['total']}' WHERE `month` = '{$vs['month']}' AND `category` = '{$vs['category']}' LIMIT 1;")) {
 		budget_return("Budget successfully updated");
-	else
+	} else {
 		budget_return("ERROR. The budget was NOT updated");
+	}
 } else {
-	if(mysql_query("INSERT INTO `budget` (`total`, `month`, `category`) VALUES ('{$vs['total']}', '{$vs['month']}', '{$vs['category']}');"))
+	if($GLOBALS['db']->query("INSERT INTO `budget` (`total`, `month`, `category`) VALUES ('{$vs['total']}', '{$vs['month']}', '{$vs['category']}');")) {
 		budget_return("Budget successfully updated");
-	else
+	} else {
 		budget_return("ERROR. The budget was NOT updated");
+	}
 }
 
 function varsec() {

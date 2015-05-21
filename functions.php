@@ -12,26 +12,34 @@
 	}
 }*/
 
+$accounts = array(
+	3 => 'Rachel\'s Visa',
+	4 => 'Ally',
+	1 => 'SJ\'s Mastercard',
+	5 => 'Notes/Extra',
+	6 => 'Cash',
+	8 => 'NTM Account',
+	9 => 'Amex CC',
+	2 => 'Chase CC',
+	7 => 'Paypal Account',
+);
+
 /*********************/
 /*** The Functions ***/
 /*********************/
 function db_connect($full_feature = true) {
 	require_once('db_config.php');
 	
-	if($GLOBALS['con'] && mysql_ping($GLOBALS['con'])) {
-		mysql_close($GLOBALS['con']);
+	if ( $GLOBALS['db']->host_info ) {
+		$GLOBALS['db']->close();
 	}
 	
 	if(!$full_feature) {
-		$GLOBALS['con'] = mysql_connect($GLOBALS['db_host'], $GLOBALS['ff_db_user'], $GLOBALS['ff_db_pass'])
-			or die("Could not connect");
-		mysql_select_db($GLOBALS['db_database'], $GLOBALS['con'])
-			or die("Could not select db. " . mysql_error());
+		$GLOBALS['db'] = new mysqli( $GLOBALS['db_host'], $GLOBALS['ff_db_user'], $GLOBALS['ff_db_pass'], $GLOBALS['db_database'] )
+			or die("Could not connect" . $GLOBALS['db']->connect_error);
 	} else {
-		$GLOBALS['con'] = mysql_connect($GLOBALS['db_host'], $GLOBALS['db_user'], $GLOBALS['db_pass'])
+		$GLOBALS['db'] = new mysqli( $GLOBALS['db_host'], $GLOBALS['db_user'], $GLOBALS['db_pass'], $GLOBALS['db_database'] )
 			or die("Could not connect");
-		mysql_select_db($GLOBALS['db_database'], $GLOBALS['con'])
-			or die("Could not select db. " . mysql_error());
 	}
 }
 
@@ -104,4 +112,5 @@ function budget_return($message) {
 		header("Location: $camefrom?message=$message");
 	die();
 }
+
 ?>

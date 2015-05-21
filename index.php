@@ -79,17 +79,6 @@ if($_COOKIE['budget']) {
 
 </head><body><?php
 
-$accounts = array(
-	2 => 'Chase CC',
-	9 => 'Amex CC',
-	3 => 'Rachel\'s Visa',
-	4 => 'Ally',
-	1 => 'SJ\'s Mastercard',
-	5 => 'Notes/Extra',
-	6 => 'Cash',
-	8 => 'NTM Account',
-	7 => 'Paypal Account',
-);
 
 if(!$_GET['viewmonth'])
 	$_GET['viewmonth'] = get_month_no();
@@ -99,11 +88,14 @@ $viewmonth = intval($_GET['viewmonth']);
 db_connect();
 $catnames = array();
 $bottomcatnames = array();
-$result = mysql_query("SELECT * FROM `categories` ORDER BY `name` ASC");
-while($row = mysql_fetch_array($result)) {
+$result = $GLOBALS['db']->query("SELECT * FROM `categories` ORDER BY `name` ASC");
+while( $row = $result->fetch_array() ) {
 	$totalspent = $totalbudget = false;
-	$totalspent = @mysql_result(mysql_query("SELECT SUM(`amount`) FROM `transactions` WHERE `category` = '{$row[0]}' AND `month` = '$viewmonth';"), 0);
-	$totalbudget = @mysql_result(mysql_query("SELECT `total` FROM `budget` WHERE `category` = '{$row[0]}' AND `month` = '$viewmonth';"), 0);
+	$totalspent = @$GLOBALS['db']->query("SELECT SUM(`amount`) FROM `transactions` WHERE `category` = '{$row[0]}' AND `month` = '$viewmonth';")->fetch_row();
+	$totalspent = $totalspent[0];
+	$totalbudget = @$GLOBALS['db']->query("SELECT `total` FROM `budget` WHERE `category` = '{$row[0]}' AND `month` = '$viewmonth';")->fetch_row();
+	$totalbudget = $totalbudget[0];
+	
 	if(!$totalspent && !$totalbudget)
 		$bottomcatnames[$row[0]] = $row[1];
 	else
@@ -184,7 +176,7 @@ function show_transaction_form($postarray = false, $month) {
 		<input type="text" size="<?php echo $GLOBALS['mobile'] ? "2" : "1"; ?>" name="month" value="<?php echo ($postarray['month']) ? $postarray['month'] : $month_field; ?>" />/<input type="text" size="<?php echo $GLOBALS['mobile'] ? '2' : '1'; ?>" name="day" value="<?php echo ($postarray['day']) ? $postarray['day'] : date('d'); ?>" />/<input type="text" size="<?php echo $GLOBALS['mobile'] ? '4' : '3'; ?>" name="year" value="<?php echo ($postarray['year']) ? $postarray['year'] : $year_field; ?>" /><?php /*echo $GLOBALS['mobile'] ? '<br/>' : '';*/ ?>
 		Payee:&nbsp;<input type="text" name="payee" <?php echo $GLOBALS['mobile'] ? 'size="18"' : ''; ?> value="<?php echo $postarray['payee']; ?>" /><?php echo /*$GLOBALS['mobile'] ? '<br/>' :*/ ' '; ?><select name="category"><?php echo $catoptions ?></select>
 		<?php echo /*$GLOBALS['mobile'] ? '<br/>' : */'&nbsp;&nbsp;&nbsp; '; ?>$<input type="text" size="5" name="amount" value="<?php echo $postarray['amount']; ?>" /><br/>
-		Notes: <input type="text" name="notes" value="<?php echo $postarray['notes']; ?>" /><br/>
+		Notes: <input type="text" name="notes" value="<?php echo $postarray['notes']; ?>" /> Cleared? <input type="checkbox" name="cleared" value="1" checked /><br/>
 		Password: <input type="password" <?php echo $GLOBALS['mobile'] ? 'size="8"' : ''; ?>name="periodontal" value="<?php echo $_COOKIE['budget'] ? clean_postarray(sdec($_COOKIE['budget'])) : ''; ?>" /> <input type="submit" value="Enter Transaction" /><br/><br/>
 		<?php if(!$GLOBALS['mobile'] || $_GET['showfull'] == "yes") { ?>
 			Split:<?php echo $GLOBALS['mobile'] ? '<br/>' : ' '; ?><select name="category1"><?php echo $catoptions1 ?></select><?php echo $GLOBALS['mobile'] ? '<br/>' : ' '; ?>$<input type="text" size="5" name="amount1"value="<?php echo $postarray['amount1']; ?>"  /><?php echo $GLOBALS['mobile'] ? '<br/>' : ' '; ?>Notes: <input type="text" name="notes1" value="<?php echo $postarray['notes1']; ?>" /><br/>
@@ -241,12 +233,12 @@ function show_transactions($month, $filter = false) {
 		<input type="submit" value="Filter" />
 	</form>
 	<?php
-	$result = mysql_query($query);
+	$result = $GLOBALS['db']->query($query);
 	$transactions = array();
-	echo /*$GLOBALS['mobile'] ? '' : */'<table><tr><th>ID</th><th>Account</th><th>Date</th><th>Payee</th><th>Category</th><th>Amount</th><th>Notes</th></tr>';
+	echo /*$GLOBALS['mobile'] ? '' : */'<table><tr><th>ID</th><th>Account</th><th>Date</th><th>Payee</th><th>Category</th><th>Amount</th><th>Notes</th><th>Cleared</th><th></th></tr>';
 	$odd = true;
 	$i=0;
-	while($row = mysql_fetch_assoc($result)) {
+	while($row = $result->fetch_assoc()) {
 		if(!$row['group']) {
 			if(is_array($transactions[$i][0]))
 				$i++;
@@ -271,11 +263,17 @@ function show_transactions($month, $filter = false) {
 		$added = false;
 		if(is_array($v[0])) {
 			$cats = $ids = $amounts = $notes = array();
-			$row_content = "<td colspan='8'><table border='0'>";
+			$row_content = "<td colspan='9'><table border='0'>";
 			$total = 0;
 			foreach($v as $vv) {
-				if($vv['id'] == $GLOBALS['newtrans'])
+				if($vv['id'] == $GLOBALS['newtrans']) {
 					$added = true;
+				}
+				if ( false == $vv['cleared'] ) {
+					$cleared = '';
+				} else {
+					$cleared = 'checked ';
+				}
 				$row_content .= '<tr><form action="edit_trans.php" method="POST"><td><input type="hidden" name="id" value="' . $vv['id'] . '" />' . $vv['id'] . '</td><td><select name="account">';
 				foreach($accounts as $acc_k => $acc_v) {
 					$row_content .= ($acc_k == $vv['account']) ? "<option selected='selected' value='$acc_k'>$acc_v</option>" : "<option value='$acc_k'>$acc_v</option>";
@@ -285,13 +283,21 @@ function show_transactions($month, $filter = false) {
 					$row_content .= ($cat_k == $vv['category']) ? "<option selected='selected' value='$cat_k'>$cat_v</option>" : "<option value='$cat_k'>$cat_v</option>";
 				}
 				$row_content .= '</select></td><td>$<input type="text" size="6" name="amount" value="' . number_format($vv['amount'], 2) . '" /></td>';
-				$row_content .= '<td><textarea name="notes">' . stripslashes($vv['notes']) . '</textarea></td><td><input type="submit" value="Save Changes" /></td></form></tr>';
+				$row_content .= '<td><textarea name="notes">' . stripslashes($vv['notes']) . '</textarea></td>';
+				$row_content .= '<td><input type="checkbox" name="cleared" value="1" ' . $cleared . '/>Cleared</td>';
+				$row_content .= '<td><input type="submit" value="Save Changes" /></td></form></tr>';
 				$total += $vv['amount'];
 			}
-			$row_content .= "<tr><td colspan='5'></td><td><strong>" . number_format($total, 2) . "</strong></td></tr></table>";
+			$row_content .= "<tr><td colspan='5'></td><td><strong>" . number_format($total, 2) . "</strong></td></tr></table></td>";
 		} else {
-			if($v['id'] == $GLOBALS['newtrans'])
+			if($v['id'] == $GLOBALS['newtrans']) {
 				$added = true;
+			}
+			if ( false == $v['cleared'] ) {
+				$cleared = '';
+			} else {
+				$cleared = 'checked ';
+			}
 			$row_content = '<form action="edit_trans.php" method="POST"><td><input type="hidden" name="id" value="' . $v['id'] . '" />' . $v['id'] . '</td><td><select name="account">';
 			foreach($accounts as $acc_k => $acc_v) {
 				$row_content .= ($acc_k == $v['account']) ? "<option selected='selected' value='$acc_k'>$acc_v</option>" : "<option value='$acc_k'>$acc_v</option>";
@@ -301,7 +307,9 @@ function show_transactions($month, $filter = false) {
 				$row_content .= ($cat_k == $v['category']) ? "<option selected='selected' value='$cat_k'>$cat_v</option>" : "<option value='$cat_k'>$cat_v</option>";
 			}
 			$row_content .= '</select></td><td><strong>$<input type="text" size="6" name="amount" value="' . number_format($v['amount'], 2) . '" /></strong></td>';
-			$row_content .= '<td><textarea name="notes">' . stripslashes($v['notes']) . '</textarea></td><td><input type="submit" value="Save Changes" /></td></form>';
+			$row_content .= '<td><textarea name="notes">' . stripslashes($v['notes']) . '</textarea></td>';
+			$row_content .= '<td><input type="checkbox" name="cleared" value="1" ' . $cleared . '/>Cleared</td>';
+			$row_content .= '<td><input type="submit" value="Save Changes" /></td></form>';
 		}
 		/*if($GLOBALS['mobile']) {
 			$row_content = str_replace(array("</td>", "<td>"), array("<br/>", ""), $row_content);
@@ -340,11 +348,16 @@ function add_transaction($dupecheck = true) {
 		if(!$date = mktime(0,0,0, $_POST['month'], $_POST['day'], $_POST['year']))
 			return "Error adding date. Please check the date and try again";
 		$month = get_month_no($date);
-		$notes = mysql_real_escape_string($_POST['notes']);
+		$notes = $GLOBALS['db']->real_escape_string($_POST['notes']);
+		if ( $_POST['cleared'] ) {
+			$cleared = '1';
+		} else {
+			$cleared = '0';
+		}
 		
-		$result = mysql_query("SELECT `id` FROM `categories`");
+		$result = $GLOBALS['db']->query("SELECT `id` FROM `categories`");
 		$isgoodcat = false;
-		while($goodcat = mysql_fetch_row($result)) {
+		while( $goodcat = $result->fetch_row() ) {
 			if($goodcat[0] == $_POST['category']) {
 				$isgoodcat = true;
 				$category = $_POST['category'];
@@ -361,7 +374,7 @@ function add_transaction($dupecheck = true) {
 		} else {
 			return 'The amount given was not a number. Maybe you tried to use a dollar sign?';
 		}
-		$payee = mysql_real_escape_string($_POST['payee']);
+		$payee = $GLOBALS['db']->real_escape_string($_POST['payee']);
 		if(!$payee)
 			return "ERROR: Please set a payee";
 		if(is_numeric($_POST['account']))
@@ -378,11 +391,16 @@ function add_transaction($dupecheck = true) {
 				} else {
 					return 'An amount given was not a number. Maybe you tried to use a dollar sign?';
 				}
-				$splitnotes[$i] = mysql_real_escape_string($_POST['notes' . $i]);
+				$splitnotes[$i] = $GLOBALS['db']->real_escape_string($_POST['notes' . $i]);
+				if ( $_POST['cleared'] ) {
+					$splitcleared[$i] = '1';
+				} else {
+					$splitcleared[$i] = '0';
+				}
 				
-				$result = mysql_query("SELECT `id` FROM `categories`");
+				$result = $GLOBALS['db']->query("SELECT `id` FROM `categories`");
 				$isgoodcat = false;
-				while($goodcat = mysql_fetch_row($result)) {
+				while($goodcat = $result->fetch_row()) {
 					if($goodcat[0] == $_POST['category' . $i] ) {
 						$isgoodcat = true;
 						$splitcategory[$i] = $_POST['category' . $i];
@@ -397,12 +415,9 @@ function add_transaction($dupecheck = true) {
 	
 	//Check for Dupes
 	if($dupecheck) {
-		$result = @mysql_query("SELECT * FROM `transactions` WHERE `month` = '$month' AND `category` = '$category' AND `amount` = '$amount'");
-		if(mysql_num_rows($result) > 0) {
-			$return = array();
-			while($row = mysql_fetch_assoc($result))
-				$return[] = $row;
-			return $return;
+		$result = @$GLOBALS['db']->query("SELECT * FROM `transactions` WHERE `month` = '$month' AND `category` = '$category' AND `amount` = '$amount'");
+		if($GLOBALS['db']->num_rows > 0) {
+			return $result->fetch_all( MYSQLI_ASSOC );
 		}
 	}
 	
@@ -410,7 +425,7 @@ function add_transaction($dupecheck = true) {
 	if($multi) {
 		$group = time();
 		$transarray = array();
-		$transarray[0] = array('account' => $account, 'date' => $date, 'payee' => $payee, 'amount' => $amount, 'category' => $category, 'notes' => $notes, 'group' => $group, 'month' => $month);
+		$transarray[0] = array('account' => $account, 'date' => $date, 'payee' => $payee, 'amount' => $amount, 'category' => $category, 'notes' => $notes, 'group' => $group, 'month' => $month, 'cleared' => $cleared);
 		for($i=1;$i<5;$i++) {
 			if($splitamount[$i]) {
 				$transarray[$i] = array('account' => $account, 'date' => $date, 'payee' => $payee, 'amount' => $splitamount[$i], 'category' => $splitcategory[$i], 'notes' => $splitnotes[$i], 'group' => $group, 'month' => $month);
@@ -418,23 +433,23 @@ function add_transaction($dupecheck = true) {
 		}
 		$count = 1;
 		foreach($transarray as $a) {
-			if(!mysql_query("INSERT INTO `transactions` (`account`, `date`, `payee`, `amount`, `category`, `notes`, `group`, `month`) VALUES ('" . $a['account'] . "', '" . $a['date'] . "', '" . $a['payee'] . "', '" . $a['amount'] . "', '" . $a['category'] . "', '" . $a['notes'] . "', '" . $a['group'] . "', '" . $a['month'] . "')")) {
+			if(!$GLOBALS['db']->query("INSERT INTO `transactions` (`account`, `date`, `payee`, `amount`, `category`, `notes`, `group`, `month`, `cleared`) VALUES ('" . $a['account'] . "', '" . $a['date'] . "', '" . $a['payee'] . "', '" . $a['amount'] . "', '" . $a['category'] . "', '" . $a['notes'] . "', '" . $a['group'] . "', '{$a['month']}', '{$a['cleared']}');")) {
 				if($count == 1)
-					return 'There was an error in the first final sql command: ' . mysql_error();
+					return 'There was an error in the first final sql command: ' . $GLOBALS['db']->error;
 				else
 					return "There was an error in command number $count, so the transaction was only halfway entered. Don't close this screen or enter more transactions until Stephen can look at it. I love you.";
 			}
-			$GLOBALS['newtrans'] = mysql_insert_id();
+			$GLOBALS['newtrans'] = $GLOBALS['db']->insert_id;
 			$count++;
 		}
 		return true;
 	
 	} else {
-		if(mysql_query("INSERT INTO `transactions` (`account`, `date`, `payee`, `amount`, `category`, `notes`, `group`, `month`) VALUES ('$account', '$date', '$payee', '$amount', '$category', '$notes', '0', '$month')")) {
-			$GLOBALS['newtrans'] = mysql_insert_id();
+		if($GLOBALS['db']->query("INSERT INTO `transactions` (`account`, `date`, `payee`, `amount`, `category`, `notes`, `group`, `month`, `cleared`) VALUES ('$account', '$date', '$payee', '$amount', '$category', '$notes', '0', '$month', '$cleared')")) {
+			$GLOBALS['newtrans'] = $GLOBALS['db']->insert_id;
 			return true;
 		} else
-			return 'There was an error in the final sql command: ' . mysql_error();
+			return 'There was an error in the final sql command: ' . $GLOBALS['db']->error;
 	}
 	
 }
@@ -444,22 +459,23 @@ function show_budget($month) {
 	list($date_from_month) = get_month_dates($month);
 	echo "<form method='POST'><br/>Showing budget for <input size='4' name='sm_month' value='" . date('m', $date_from_month) . "' />/<input size='6' name='sm_year' value='" . date('Y', $date_from_month) . "' /><input type='hidden' name='action' value='switchmonth' /><input type='submit' value='Go To Date' /></form>"; 
 	db_connect();
-	echo "<table><tr><th>Category</th><th>Total</th><th>Credited</th><th>Spent</th><th>Left Over</th></tr>";
+	echo "<table><tr><th>Category</th><th>Budget</th><th>Adjustments</th><th>Spent</th><th>Left Over</th></tr>";
 	$odd = true;
 	$totaltotal = 0;
 	$totalremaining = 0;
 	foreach($catnames as $catid => $catname) {
 		$teststart = microtime(true);
-		$totalbudgeted = @mysql_result(mysql_query("SELECT `total` FROM `budget` WHERE `month` = '$month' AND `category` = '" . mysql_real_escape_string($catid) . "';"), 0);
-		$r = mysql_query("SELECT `amount` FROM `transactions` WHERE `month` = '$month' AND `category` = '" . mysql_real_escape_string($catid) . "';");
-		$thistotal = $thiscredited = 0;
-		while($transrow = mysql_fetch_row($r)) {
-			if ($transrow[0] > 0)
+		$totalbudgeted = @$GLOBALS['db']->query("SELECT `total` FROM `budget` WHERE `month` = '$month' AND `category` = '" . $GLOBALS['db']->real_escape_string($catid) . "';")->fetch_object()->total;
+		$r = $GLOBALS['db']->query("SELECT `amount`, `account` FROM `transactions` WHERE `month` = '$month' AND `category` = '" . $GLOBALS['db']->real_escape_string($catid) . "';");
+		$thistotal = $thisadjusted = 0;
+		while($transrow = $r->fetch_row()) {
+			if ( 5 != $transrow[1] ) {
 				$thistotal += $transrow[0];
-			else
-				$thiscredited -= $transrow[0];
+			} else {
+				$thisadjusted -= $transrow[0];
+			}
 		}
-		$remaining = $totalbudgeted + $thiscredited - $thistotal;
+		$remaining = $totalbudgeted + $thisadjusted - $thistotal;
 		if($odd) {
 			echo '<tr class="odd"><form action="edit_bud.php" method="POST">';
 			$odd = false;
@@ -467,11 +483,13 @@ function show_budget($month) {
 			echo '<tr><form action="edit_bud.php" method="POST">';
 			$odd = true;
 		}
-		$thiscredited_text = '';
-		if($thiscredited > 0) {
-			$thiscredited_text = '+ ' . $thiscredited;
+		$thisadjusted_text = '';
+		if($thisadjusted > 0) {
+			$thisadjusted_text = '+ ' . $thisadjusted;
+		} elseif ( $thisadjusted < 0 ) {
+			$thisadjusted_text = '- ' . abs( $thisadjusted );
 		}
-		echo make_graph($totalbudgeted, $thiscredited, $thistotal, stripslashes($catname)) . '<td><input type="hidden" name="month" value="' . $month . '" /><input type="hidden" name="category" value="' . $catid . '" /><input type="text" name="total" value="' . $totalbudgeted . '" size="5" /></td><td>' . $thiscredited_text . '</td><td>' . $thistotal . '</td></td><td class="remaining">';
+		echo make_graph($totalbudgeted, $thisadjusted, $thistotal, stripslashes($catname)) . '<td><input type="hidden" name="month" value="' . $month . '" /><input type="hidden" name="category" value="' . $catid . '" /><input type="text" name="total" value="' . $totalbudgeted . '" size="5" /></td><td>' . $thisadjusted_text . '</td><td>' . $thistotal . '</td></td><td class="remaining">';
 		if($remaining < 0)
 			echo '<span style="color: #f00;">$' . number_format($remaining, 2) . "</span></td><td><input type='submit' value='Save Changes' /></td>";
 		else
@@ -480,13 +498,16 @@ function show_budget($month) {
 		
 		$totaltotal += $thistotal;
 		$totalremaining += $remaining;
-		$totalcredited += $thiscredited;
+		$totaladjusted += $thisadjusted;
 		$totaltotalbudgeted += $totalbudgeted;
 		$testend = microtime(true);
 	}
 	echo "</table>";
 	echo "<br/><form action='add_cat.php' method='POST'><input type='text' name='name' /><input type='submit' value='Add New Category' /></form><br/>";
-	echo "<br/>Total Budgeted: $totaltotalbudgeted &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Total Added: $totalcredited &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Total Spent: $totaltotal &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Total remaining: $totalremaining<br/>";
+	$uncleared = $GLOBALS['db']->query("SELECT sum(`amount`) FROM `transactions` WHERE `cleared` = '0';")->fetch_row();
+	$uncleared = $uncleared[0];
+	$uncleared = $uncleared[0];
+	echo "<br/>Total Budgeted: $totaltotalbudgeted &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Total Adjustments: $totaladjusted &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Total Spent: $totaltotal &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Total remaining: $totalremaining &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Uncleared Checks: $uncleared<br/>";
 
 }
 
@@ -570,14 +591,14 @@ function carryover($from_month, $cat_array) {
 	list($date2) = get_month_dates($to_month);
 	$date1 = $date2 - 86300;
 	foreach($cat_array as $cat) {
-		$spent = mysql_result(mysql_query("SELECT sum(amount) FROM `transactions` WHERE `month` = '$from_month' AND `category` = '$cat'"), 0);
-		$budgeted = mysql_result(mysql_query("SELECT `total` FROM `budget` WHERE `month` = '$from_month' AND `category` = '$cat'"), 0);
+		$spent = $GLOBALS['db']->result($GLOBALS['db']->query("SELECT sum(amount) FROM `transactions` WHERE `month` = '$from_month' AND `category` = '$cat'"), 0);
+		$budgeted = $GLOBALS['db']->result($GLOBALS['db']->query("SELECT `total` FROM `budget` WHERE `month` = '$from_month' AND `category` = '$cat'"), 0);
 		$leftover = $budgeted - $spent;
 		$leftover_neg = -1 * $leftover;
 		if($leftover != 0) {
-			if(!mysql_query("INSERT INTO `transactions` (`account`, `date`, `payee`, `amount`, `category`, `notes`, `group`, `month`) VALUES ('$account', '$date1', '$payee1', '$leftover', '$cat', '', '{$group}a', '$from_month')"))
+			if(!$GLOBALS['db']->query("INSERT INTO `transactions` (`account`, `date`, `payee`, `amount`, `category`, `notes`, `group`, `month`) VALUES ('$account', '$date1', '$payee1', '$leftover', '$cat', '', '{$group}a', '$from_month')"))
 				return "Couldn't insert the 'from' transaction";
-			if(!mysql_query("INSERT INTO `transactions` (`account`, `date`, `payee`, `amount`, `category`, `notes`, `group`, `month`) VALUES ('$account', '$date2', '$payee2', '$leftover_neg', '$cat', '', '{$group}b', '$to_month')"))
+			if(!$GLOBALS['db']->query("INSERT INTO `transactions` (`account`, `date`, `payee`, `amount`, `category`, `notes`, `group`, `month`) VALUES ('$account', '$date2', '$payee2', '$leftover_neg', '$cat', '', '{$group}b', '$to_month')"))
 				return "Couldn't insert the 'to' transaction";
 		}
 		
@@ -605,12 +626,12 @@ function build_transaction_filter() {
 		$and = ' AND';
 	}
 	if ( $_POST[ 'tf_cat' ] ) {
-		$cat = mysql_real_escape_string( htmlspecialchars( $_POST[ 'tf_cat' ] ) );
+		$cat = $GLOBALS['db']->real_escape_string( htmlspecialchars( $_POST[ 'tf_cat' ] ) );
 		$where .= $and . " `category` = '$cat'";
 		$and = ' AND';
 	}
 	if ( $_POST[ 'tf_payee' ] ) {
-		$payee = mysql_real_escape_string( htmlspecialchars( $_POST[ 'tf_payee' ] ) );
+		$payee = $GLOBALS['db']->real_escape_string( htmlspecialchars( $_POST[ 'tf_payee' ] ) );
 		$where .= $and . " `payee` LIKE '%{$payee}%'";
 		$and = ' AND';
 	}
